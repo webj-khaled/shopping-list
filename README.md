@@ -212,3 +212,8 @@ Stop Docker services:
 ```powershell
 docker compose down
 ```
+### Project is hosted at
+
+https://list.esnsalzburg.org/
+
+you can directly use it here without setting it up anywhere
