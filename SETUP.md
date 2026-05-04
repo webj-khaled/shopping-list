@@ -69,24 +69,6 @@ These values are important:
 - `MESSENGER_TRANSPORT_DSN=sync://` means messages run immediately, so no separate Messenger worker is required for this project.
 - `MAILER_DSN=null://null` means emails are disabled/discarded. This is fine because the app does not require email sending for the assignment.
 
-For VPS production, use production values instead:
-
-```env
-APP_ENV=prod
-APP_DEBUG=0
-APP_SECRET=<real-random-secret>
-DEFAULT_URI=https://list.esnsalzburg.org
-DATABASE_URL="mysql://app:<mysql-password>@shoppinglist-db:3306/app?serverVersion=8.4.0&charset=utf8mb4"
-MESSENGER_TRANSPORT_DSN=sync://
-MAILER_DSN=null://null
-```
-
-If the DNS record for `list.esnsalzburg.org` is not ready yet, temporarily use:
-
-```env
-DEFAULT_URI=http://185.166.214.112
-```
-
 ## 4. Start Docker Services
 
 Start Docker Desktop first, then run:
