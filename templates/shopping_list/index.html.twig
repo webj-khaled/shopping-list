@@ -1,0 +1,286 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Shopping Lists{% endblock %}
+
+{% block body %}
+{% set errorMessages = app.flashes('error') %}
+{% set successMessages = app.flashes('success') %}
+{% set hasAuthMessages = errorMessages|length > 0 or successMessages|length > 0 %}
+
+<turbo-frame id="dashboard-frame" class="dashboard-frame">
+<main class="dashboard-shell" data-controller="auth-panel" data-auth-panel-open-value="{{ hasAuthMessages ? 'true' : 'false' }}">
+    <section class="dashboard-header">
+        <div>
+            <p class="dashboard-kicker">Public dashboard</p>
+            <h1>Shopping Lists</h1>
+        </div>
+
+        <button
+            class="account-toggle{% if currentUsername %} account-toggle--active{% endif %}"
+            type="button"
+            data-auth-panel-target="toggle"
+            data-action="auth-panel#toggle"
+            aria-expanded="false"
+        >
+            {% if currentUsername %}
+                <span class="account-toggle__label">Signed in</span>
+                <span class="account-toggle__username">{{ currentUsername }}</span>
+            {% else %}
+                Use username
+            {% endif %}
+        </button>
+    </section>
+
+    {% if errorMessages or successMessages %}
+        <section class="dashboard-alerts" aria-label="Account messages">
+            {% for message in errorMessages %}
+                <div class="form-message" role="alert">{{ message }}</div>
+            {% endfor %}
+
+            {% for message in successMessages %}
+                <div class="form-message form-message--success" role="status">{{ message }}</div>
+            {% endfor %}
+        </section>
+    {% endif %}
+
+    <turbo-frame id="session-panel">
+        <section class="account-panel is-collapsed" data-auth-panel-target="panel" aria-hidden="true">
+            <div class="account-panel__text">
+                <h2>Optional user access</h2>
+                <p>Create a username or log in to save lists under your name. You can still browse the dashboard without it.</p>
+            </div>
+
+            {% if currentUsername %}
+                <div class="account-session">
+                    <div>
+                        <span>Active username</span>
+                        <strong>{{ currentUsername }}</strong>
+                    </div>
+
+                    <form method="post" action="{{ path('app_logout_submit') }}" data-turbo-frame="dashboard-frame">
+                        <input type="hidden" name="_token" value="{{ csrf_token('auth_logout') }}">
+                        <button class="button button-logout" type="submit">Logout</button>
+                    </form>
+                </div>
+            {% else %}
+                <form class="account-form" method="post" data-turbo-frame="dashboard-frame">
+                    <input type="hidden" name="_token" value="{{ csrf_token('auth_username') }}">
+                    <label for="username">Username</label>
+                    <div class="account-form__row">
+                        <input id="username" name="username" type="text" maxlength="80" required>
+                        <button class="button button-login" type="submit" formaction="{{ path('app_login_submit') }}">Login</button>
+                        <button class="button button-create" type="submit" formaction="{{ path('app_user_create') }}">Create User</button>
+                    </div>
+                </form>
+            {% endif %}
+        </section>
+    </turbo-frame>
+
+    <section class="list-create-panel" aria-label="Create shopping list">
+        <form class="list-create-form" method="post" action="{{ path('app_shopping_list_create', dashboardQueryParameters) }}" enctype="multipart/form-data" data-turbo-frame="dashboard-frame">
+            <input type="hidden" name="_token" value="{{ csrf_token('shopping_list_create') }}">
+            <label for="list-name">New shopping list</label>
+            <div class="list-create-form__row">
+                <input id="list-name" name="name" type="text" maxlength="120" placeholder="List name" required>
+                <button class="button button-save" type="submit">Create List</button>
+            </div>
+            <div class="list-create-form__cover">
+                <label for="list-cover">Cover picture</label>
+                <input id="list-cover" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+                <span>Optional JPG, PNG, WebP, or GIF up to 2 MB.</span>
+            </div>
+            <fieldset
+                class="initial-items"
+                data-controller="initial-items"
+                data-initial-items-index-value="1"
+                data-initial-items-max-value="12"
+            >
+                <legend>Starting items</legend>
+                <div class="initial-items__rows" data-initial-items-target="rows">
+                    <div class="initial-item-row" data-initial-items-target="row">
+                        <label>
+                            <span>Item name</span>
+                            <input name="items[0][name]" type="text" maxlength="180" placeholder="Milk">
+                        </label>
+                        <label class="initial-item-row__quantity">
+                            <span>Qty</span>
+                            <input name="items[0][quantity]" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" value="1">
+                        </label>
+                        <button class="button button-clear initial-item-row__remove" type="button" data-action="initial-items#removeRow" hidden>Remove</button>
+                    </div>
+                </div>
+                <button class="button button-clear initial-items__add" type="button" data-initial-items-target="add" data-action="initial-items#addRow">Add Item</button>
+            </fieldset>
+            {% if currentUsername %}
+                <fieldset class="visibility-options">
+                    <legend>Visibility</legend>
+                    <label>
+                        <input type="radio" name="visibility" value="private" checked>
+                        <span>Private</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="visibility" value="public">
+                        <span>Public</span>
+                    </label>
+                </fieldset>
+            {% else %}
+                <input type="hidden" name="visibility" value="public">
+            {% endif %}
+        </form>
+    </section>
+
+    <section class="list-tools" aria-label="Search and filter shopping lists">
+        <form class="list-search-form" method="get" action="{{ path('app_dashboard') }}" data-turbo-frame="dashboard-frame">
+            {% if activeListFilter != 'all' %}
+                <input type="hidden" name="listFilter" value="{{ activeListFilter }}">
+            {% endif %}
+            <label for="list-search">Search lists</label>
+            <div class="list-search-form__row">
+                <input id="list-search" name="q" type="search" maxlength="120" value="{{ listSearchQuery }}" placeholder="Search by list name">
+                <button class="button button-save" type="submit">Search</button>
+                {% if listSearchQuery %}
+                    <a class="button button-clear" href="{{ path('app_dashboard', activeListFilter == 'all' ? {} : { listFilter: activeListFilter }) }}">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+
+        {% if listFilterOptions %}
+            <div class="list-filter-tabs" aria-label="List filters">
+                {% for option in listFilterOptions %}
+                <a
+                    class="list-filter-tab{% if option.isActive %} is-active{% endif %}"
+                    href="{{ path('app_dashboard', option.query) }}"
+                    {% if option.isActive %}aria-current="page"{% endif %}
+                >
+                    <span>{{ option.label }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="list-grid" aria-label="Shopping lists">
+        {% for list in lists %}
+            {% set progress = list.itemsTotal > 0 ? (list.itemsChecked / list.itemsTotal * 100) : 0 %}
+            <article
+                class="list-card list-card--theme-{{ list.id % 6 }}"
+                {% if list.coverImage starts with 'gradient:' %}
+                    style="--list-cover-background: {{ list.coverImage|slice(9)|e('html_attr') }};"
+                {% elseif list.coverImage %}
+                    style="--list-cover-background: linear-gradient(135deg, rgba(23, 32, 42, 0.05), rgba(23, 32, 42, 0.18)), url('{{ list.coverImage|e('html_attr') }}');"
+                {% endif %}
+            >
+                <div class="list-card__cover" aria-hidden="true"></div>
+                <div class="list-card__body">
+                    <div class="list-card__heading">
+                        <h2>{{ list.name }}</h2>
+                        <span class="visibility-badge{{ list.isPublic ? ' visibility-badge--public' : ' visibility-badge--private' }}">
+                            {{ list.isPublic ? 'Public' : 'Private' }}
+                        </span>
+                    </div>
+                    <p>{{ list.itemsChecked }} of {{ list.itemsTotal }} items bought</p>
+                    <div class="progress-track" aria-label="{{ list.itemsChecked }} of {{ list.itemsTotal }} items bought">
+                        <span style="width: {{ progress }}%"></span>
+                    </div>
+                    {% if list.canEdit %}
+                        <details class="list-actions" aria-label="List actions for {{ list.name }}">
+                            <summary>
+                                <span>
+                                    <span class="list-actions__edit-label">Edit</span>
+                                    <span class="list-actions__joiner">or</span>
+                                    <span class="list-actions__delete-label">Delete</span>
+                                    List
+                                </span>
+                            </summary>
+                            <div class="list-actions__panel">
+                                <form class="list-edit-form" method="post" action="{{ path('app_shopping_list_update', { id: list.id }|merge(dashboardQueryParameters)) }}" data-turbo-frame="dashboard-frame" aria-label="Edit {{ list.name }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('shopping_list_update_' ~ list.id) }}">
+                                    <input name="name" type="text" maxlength="120" value="{{ list.name }}" aria-label="List name" required>
+                                    <button class="button button-save" type="submit">Edit</button>
+                                </form>
+                                <form class="list-delete-form" method="post" action="{{ path('app_shopping_list_delete', { id: list.id }|merge(dashboardQueryParameters)) }}" data-turbo-frame="dashboard-frame" onsubmit="return confirm('Delete this shopping list and all its items?')">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('shopping_list_delete_' ~ list.id) }}">
+                                    <button class="button button-delete" type="submit">Delete List</button>
+                                </form>
+                            </div>
+                        </details>
+                    {% endif %}
+                    {% if list.items %}
+                        <div class="item-preview" aria-label="Items in {{ list.name }}">
+                            {% for item in list.items|slice(0, 4) %}
+                                <span class="item-chip{% if item.checked %} is-checked{% endif %}">{{ item.name }}</span>
+                            {% endfor %}
+                            {% if list.items|length > 4 %}
+                                <span class="item-chip item-chip--more">+{{ list.items|length - 4 }}</span>
+                            {% endif %}
+                        </div>
+                        <details class="item-dropdown">
+                            <summary>
+                                <span>Items</span>
+                                <strong>{{ list.items|length }}</strong>
+                            </summary>
+                            <div class="item-dropdown__panel">
+                                {% for item in list.items %}
+                                    <div class="item-row{% if item.checked %} is-checked{% endif %}">
+                                        <div class="item-row__header">
+                                            <span class="item-read-name">{{ item.name }}</span>
+                                            <span class="item-read-status">{{ item.checked ? 'Bought' : 'Open' }}</span>
+                                        </div>
+                                        {% if list.canEdit %}
+                                            <form class="item-edit-form" method="post" action="{{ path('app_shopping_item_update', { id: list.id, itemId: item.id }|merge(dashboardQueryParameters)) }}" data-turbo-frame="dashboard-frame">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('shopping_item_update_' ~ item.id) }}">
+                                                <label class="item-check">
+                                                    <input name="checked" type="checkbox"{% if item.checked %} checked{% endif %}>
+                                                    <span>Bought</span>
+                                                </label>
+                                                <input name="name" type="text" maxlength="180" value="{{ item.name }}" aria-label="Item name" required>
+                                                <input class="item-edit-form__quantity" name="quantity" type="number" min="1" step="1" value="{{ item.quantity }}" aria-label="Quantity" required>
+                                                <button class="button button-save" type="submit">Save</button>
+                                            </form>
+                                            <form class="item-delete-form" method="post" action="{{ path('app_shopping_item_delete', { id: list.id, itemId: item.id }|merge(dashboardQueryParameters)) }}" data-turbo-frame="dashboard-frame">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('shopping_item_delete_' ~ item.id) }}">
+                                                <button class="button button-delete" type="submit">Delete</button>
+                                            </form>
+                                        {% else %}
+                                            <span class="item-read-meta">
+                                                {{ item.quantity }}{% if item.unit %} {{ item.unit }}{% endif %}{% if item.category %} / {{ item.category }}{% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </details>
+                    {% endif %}
+                    {% if list.canEdit %}
+                        <form class="item-create-form" method="post" action="{{ path('app_shopping_item_create', { id: list.id }|merge(dashboardQueryParameters)) }}" data-turbo-frame="dashboard-frame" aria-label="Add item to {{ list.name }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('shopping_item_create_' ~ list.id) }}">
+                            <input name="name" type="text" maxlength="180" placeholder="Item name" required>
+                            <input class="item-create-form__quantity" name="quantity" type="number" min="1" step="1" value="1" aria-label="Quantity" required>
+                            <button class="button button-save" type="submit">Add Item</button>
+                        </form>
+                    {% else %}
+                        <p class="list-card__locked">View only. Only the owner can edit this private list.</p>
+                    {% endif %}
+                </div>
+            </article>
+        {% else %}
+            <div class="empty-state">
+                {% if listSearchQuery %}
+                    <h2>No matching shopping lists</h2>
+                    <p>Try another list name.</p>
+                {% elseif activeListFilter == 'mine' %}
+                    <h2>No lists in My lists</h2>
+                    <p>Create a private list above.</p>
+                {% elseif activeListFilter == 'public' %}
+                    <h2>No public lists yet</h2>
+                    <p>Create the first public list above.</p>
+                {% else %}
+                    <h2>No shopping lists yet</h2>
+                    <p>Create the first list above.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </section>
+</main>
+</turbo-frame>
+{% endblock %}
