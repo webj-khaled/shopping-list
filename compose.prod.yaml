@@ -1,0 +1,38 @@
+services:
+  shoppinglist-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: ${SHOPPINGLIST_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${SHOPPINGLIST_MYSQL_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "app", "--password=${SHOPPINGLIST_MYSQL_PASSWORD}"]
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    volumes:
+      - shoppinglist_database_data:/var/lib/mysql
+
+  shoppinglist:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      APP_SECRET: ${SHOPPINGLIST_APP_SECRET}
+      DATABASE_URL: mysql://app:${SHOPPINGLIST_MYSQL_PASSWORD}@shoppinglist-db:3306/app?serverVersion=8.4.0&charset=utf8mb4
+      MESSENGER_TRANSPORT_DSN: sync://
+      MAILER_DSN: null://null
+    depends_on:
+      shoppinglist-db:
+        condition: service_healthy
+    volumes:
+      - shoppinglist_uploads:/app/public/uploads
+
+volumes:
+  shoppinglist_database_data:
+  shoppinglist_uploads:
