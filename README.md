@@ -49,15 +49,43 @@ php bin/console assets:install public
 
 ## 3. Environment Configuration
 
-The default local development database is configured in `.env`:
+The default local development environment is configured in `.env`:
 
 ```env
+APP_ENV=dev
+DEFAULT_URI=http://127.0.0.1:8000
 DATABASE_URL="mysql://app:!ChangeMe!@127.0.0.1:3306/app?serverVersion=8.4.0&charset=utf8mb4"
+MESSENGER_TRANSPORT_DSN=sync://
+MAILER_DSN=null://null
 ```
 
 The development app secret is configured in `.env.dev`.
 
 No extra `.env.local` file is required for the default local setup.
+
+These values are important:
+
+- `DEFAULT_URI` is used by Symfony when it generates URLs from console commands or background code.
+- `MESSENGER_TRANSPORT_DSN=sync://` means messages run immediately, so no separate Messenger worker is required for this project.
+- `MAILER_DSN=null://null` means emails are disabled/discarded. This is fine because the app does not require email sending for the assignment.
+
+For VPS production, use production values instead:
+
+```env
+APP_ENV=prod
+APP_DEBUG=0
+APP_SECRET=<real-random-secret>
+DEFAULT_URI=https://list.esnsalzburg.org
+DATABASE_URL="mysql://app:<mysql-password>@shoppinglist-db:3306/app?serverVersion=8.4.0&charset=utf8mb4"
+MESSENGER_TRANSPORT_DSN=sync://
+MAILER_DSN=null://null
+```
+
+If the DNS record for `list.esnsalzburg.org` is not ready yet, temporarily use:
+
+```env
+DEFAULT_URI=http://185.166.214.112
+```
 
 ## 4. Start Docker Services
 
