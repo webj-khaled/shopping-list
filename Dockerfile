@@ -13,6 +13,8 @@ ENV APP_ENV=prod \
     APP_DEBUG=0 \
     COMPOSER_ALLOW_SUPERUSER=1
 
+RUN touch .env
+
 COPY composer.json composer.lock symfony.lock ./
 COPY bin ./bin
 COPY config ./config
